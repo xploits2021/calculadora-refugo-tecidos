@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1e3a8a">
+  <title>Refugo de Tecidos</title>
+  <!-- Chart.js local (copiado no build). Se não existir, cai para o CDN. -->
+  <script src="vendor/chart.umd.js"></script>
+  <script>
+    if (!window.Chart) {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"><\/script>');
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; background: #f0f2f5; color: #333;
+      padding: calc(12px + env(safe-area-inset-top, 0px))
+               calc(12px + env(safe-area-inset-right, 0px))
+               calc(24px + env(safe-area-inset-bottom, 0px))
+               calc(12px + env(safe-area-inset-left, 0px));
+      max-width: 720px; margin-inline: auto;
+    }
+    h1 { font-size: 18px; text-align: center; color: #333; margin: 8px 0 12px; }
+    h3 { font-size: 14px; color: #555; margin: 14px 4px 6px; }
+
+    .btn-add {
+      width: 100%; padding: 14px; font-size: 16px; font-weight: 700;
+      background: #2563eb; color: #fff; border: 0; border-radius: 10px;
+      cursor: pointer; margin-bottom: 12px;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, .3);
+    }
+    .btn-add:active { background: #1d4ed8; }
+
+    .abas {
+      display: flex; gap: 4px; margin-bottom: 10px;
+      background: #e5e7eb; padding: 4px; border-radius: 10px;
+    }
+    .aba {
+      flex: 1; padding: 10px 2px; font-size: 12.5px; font-weight: 600;
+      background: transparent; border: 0; border-radius: 8px;
+      cursor: pointer; color: #555; white-space: nowrap;
+    }
+    .aba.ativa { background: #fff; color: #2563eb; box-shadow: 0 1px 3px rgba(0, 0, 0, .1); }
+    .painel { display: none; }
+    .painel.ativo { display: block; }
+
+    .filtro-bar {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+      background: #fff; padding: 8px 10px; border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
+    }
+    .filtro-bar label { font-size: 13px; color: #555; font-weight: 600; white-space: nowrap; }
+    .filtro-bar select {
+      flex: 1; min-width: 0; padding: 8px; font-size: 14px;
+      border: 1px solid #ccc; border-radius: 8px; background: #fff;
+    }
+
+    .tabela {
+      width: 100%; border-collapse: collapse; background: #fff;
+      border-radius: 10px; overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .08); font-size: 14px;
+      margin-bottom: 20px;
+    }
+    .tabela th {
+      background: #1e3a8a; color: #fff; padding: 10px 6px;
+      text-align: left; font-size: 12.5px; font-weight: 600;
+    }
+    .tabela th.num, .tabela td.num { text-align: right; }
+    .tabela th.centro, .tabela td.centro { text-align: center; }
+    .tabela td { padding: 9px 6px; border-bottom: 1px solid #eef1f5; color: #333; }
+    .tabela tr:last-child td { border-bottom: 0; }
+    .tabela tbody tr:nth-child(even) td { background: #f8fafc; }
+    .tabela tfoot td {
+      background: #16a34a; color: #fff; font-weight: 700;
+      font-size: 15px; padding: 12px 6px;
+    }
+    .tag-tipo {
+      display: inline-block; max-width: 90px; overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap; vertical-align: bottom; font-size: 12px;
+      background: #e0e7ff; color: #3730a3; padding: 2px 7px; border-radius: 999px;
+    }
+    .tag-tipo.sem { background: #f1f5f9; color: #64748b; }
+    .vazio {
+      text-align: center; color: #999; padding: 30px;
+      background: #fff; border-radius: 10px; font-style: italic; margin-bottom: 12px;
+    }
+
+    .card-grafico {
+      background: #fff; border-radius: 10px; padding: 15px 10px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .08); margin-bottom: 12px;
+    }
+    .card-grafico h3 { margin: 0 0 12px; font-size: 15px; color: #111; text-align: center; font-weight: bold; }
+    .grafico-wrap { position: relative; height: 300px; }
+    .nota { font-size: 12px; color: #777; text-align: center; margin: 10px 0 0; }
+
+    .nav-data { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 14px; }
+    .nav-data button {
+      width: 40px; height: 38px; border: 0; border-radius: 8px; background: #e5e7eb;
+      font-size: 16px; cursor: pointer; color: #333;
+    }
+    .nav-data button:active { background: #d1d5db; }
+    .filtro-data {
+      padding: 8px; border: 1px solid #ccc; border-radius: 8px;
+      font-size: 14px; background: #fff;
+    }
+
+    .resumo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+    .resumo .item {
+      background: #fff; border-radius: 10px; padding: 10px 6px; text-align: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
+    }
+    .resumo .item span { display: block; font-size: 11px; color: #777; margin-bottom: 4px; }
+    .resumo .item b { font-size: 14px; color: #0f172a; }
+
+    .btn-icone {
+      border: 0; border-radius: 6px; padding: 6px 9px; cursor: pointer;
+      font-size: 14px; display: inline-flex; align-items: center; transition: .2s;
+    }
+    .btn-editar { background: #dbeafe; }
+    .btn-editar:active { background: #bfdbfe; }
+    .btn-lixeira { background: #fee2e2; color: #dc2626; margin-left: 4px; }
+    .btn-lixeira:active { background: #fca5a5; }
+
+    .cartao-dados {
+      background: #fff; border-radius: 10px; padding: 14px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .08); margin-bottom: 12px;
+    }
+    .cartao-dados h3 { margin: 0 0 6px; font-size: 15px; color: #111; }
+    .cartao-dados p { margin: 0 0 12px; font-size: 13px; color: #666; line-height: 1.4; }
+    .btn-sec {
+      display: block; width: 100%; padding: 12px; font-size: 14px; font-weight: 600;
+      background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 8px;
+      cursor: pointer; margin-bottom: 8px; text-align: center;
+    }
+    .btn-sec:active { background: #dbeafe; }
+
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0, 0, 0, .5); align-items: center; justify-content: center;
+      padding: 16px; z-index: 100;
+    }
+    .overlay.ativo { display: flex; }
+    .modal {
+      background: #fff; border-radius: 12px; padding: 18px;
+      width: 100%; max-width: 340px; max-height: 100%; overflow-y: auto;
+    }
+    .modal h2 { margin: 0 0 14px; font-size: 16px; color: #222; }
+    .modal label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; }
+    .modal input, .modal select {
+      width: 100%; padding: 10px; font-size: 15px; background: #fff;
+      border: 1px solid #ccc; border-radius: 8px; margin-bottom: 12px;
+    }
+    .modal .botoes { display: flex; gap: 8px; }
+    .modal .botoes button {
+      flex: 1; padding: 11px; font-size: 14px; font-weight: 600;
+      border: 0; border-radius: 8px; cursor: pointer;
+    }
+    .btn-cancelar { background: #e5e7eb; color: #333; }
+    .btn-salvar { background: #2563eb; color: #fff; }
+
+    .toast {
+      position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+      transform: translateX(-50%) translateY(20px); opacity: 0; pointer-events: none;
+      background: #111827; color: #fff; padding: 10px 16px; border-radius: 999px;
+      font-size: 14px; transition: .25s; z-index: 200; max-width: 90%; text-align: center;
+    }
+    .toast.ativo { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+  <h1>🧵 Controle de Refugo de Tecidos</h1>
+
+  <button class="btn-add" id="btnAbrir">➕ Adicionar Peso</button>
+
+  <div class="abas">
+    <button class="aba ativa" data-aba="lista">📋 Lista</button>
+    <button class="aba" data-aba="diario">📈 Diário</button>
+    <button class="aba" data-aba="anual">📈 Anual</button>
+    <button class="aba" data-aba="dados">💾 Dados</button>
+  </div>
+
+  <div class="filtro-bar" id="filtroBar">
+    <label for="filtroTipo">Tecido:</label>
+    <select id="filtroTipo"></select>
+  </div>
+
+  <div class="painel ativo" id="painel-lista">
+    <div id="areaLista"></div>
+  </div>
+
+  <div class="painel" id="painel-diario">
+    <div class="card-grafico">
+      <h3>Desenvolvimento Diário (kg)</h3>
+      <div class="nav-data">
+        <button id="mesAnterior" aria-label="Mês anterior">◀</button>
+        <input type="month" id="mesDiario" class="filtro-data">
+        <button id="mesProximo" aria-label="Próximo mês">▶</button>
+      </div>
+      <div class="grafico-wrap"><canvas id="graficoDiario"></canvas></div>
+    </div>
+    <div id="resumoDiario"></div>
+    <div id="tabelaDiario"></div>
+  </div>
+
+  <div class="painel" id="painel-anual">
+    <div class="card-grafico">
+      <h3>Variação Mensal (%)</h3>
+      <div class="nav-data">
+        <button id="anoAnterior" aria-label="Ano anterior">◀</button>
+        <input type="number" id="anoAnual" class="filtro-data" style="width: 110px; text-align: center;" placeholder="Ano" min="2000" max="2100">
+        <button id="anoProximo" aria-label="Próximo ano">▶</button>
+      </div>
+      <div class="grafico-wrap"><canvas id="graficoAnual"></canvas></div>
+      <p class="nota">Cada mês é comparado com o mês anterior que tem registros.</p>
+    </div>
+    <div id="tabelaAnual"></div>
+  </div>
+
+  <div class="painel" id="painel-dados">
+    <div class="cartao-dados">
+      <h3>📤 Exportar</h3>
+      <p>Gera uma planilha (CSV) com todas as pesagens, que abre direto no Excel.</p>
+      <button class="btn-sec" id="btnCsv">Exportar planilha (CSV)</button>
+    </div>
+    <div class="cartao-dados">
+      <h3>🛟 Backup</h3>
+      <p>Os dados ficam só neste aparelho. Se desinstalar o app ou limpar os dados, eles se perdem — faça backup de vez em quando e guarde o arquivo no Drive ou WhatsApp.</p>
+      <button class="btn-sec" id="btnBackup">Salvar backup (JSON)</button>
+      <button class="btn-sec" id="btnRestaurar">Restaurar backup</button>
+      <input type="file" id="inpArquivo" accept=".json,application/json" hidden>
+      <p style="margin:6px 0 0;">Ao restaurar, os registros do arquivo são somados aos atuais; os repetidos são ignorados.</p>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h2 id="modalTitulo">Adicionar Peso</h2>
+      <label for="inpData">Data</label>
+      <input type="date" id="inpData">
+      <label for="inpTipo">Tipo de tecido</label>
+      <select id="inpTipo"></select>
+      <input type="text" id="inpNovoTipo" placeholder="Nome do novo tipo" maxlength="30" style="display:none;">
+      <label for="inpPeso">Peso (kg)</label>
+      <input type="number" step="0.01" min="0" inputmode="decimal" id="inpPeso" placeholder="Ex: 55">
+      <label for="inpHora">Hora</label>
+      <input type="time" id="inpHora">
+      <div class="botoes">
+        <button class="btn-cancelar" id="btnCancelar">Cancelar</button>
+        <button class="btn-salvar" id="btnSalvar">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ============ BANCO DE DADOS ============
+    // Mesmo banco/store da versão anterior: os registros antigos continuam valendo.
+    let db;
+    const DB_NAME = 'refugoDB2';
+    const STORE = 'pesagens';
+    const SEM_TIPO = 'Sem tipo';
+    const NOVO_TIPO = '__novo__';
+    const TIPOS_PADRAO = ['Algodão', 'Poliéster', 'Malha', 'Viscose', 'Jeans', 'Outros'];
+
+    let tipos = [];
+    let filtroTipo = '';
+    let abaAtual = 'lista';
+    let editandoReg = null;
+
+    function abrirDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = e => {
+          const d = e.target.result;
+          if (!d.objectStoreNames.contains(STORE)) {
+            const store = d.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+            store.createIndex('data', 'data', { unique: false });
+          }
+        };
+        req.onsuccess = e => { db = e.target.result; resolve(); };
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function executar(modo, fn) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, modo);
+        let resultado;
+        try { resultado = fn(tx.objectStore(STORE)); } catch (err) { reject(err); return; }
+        tx.oncomplete = () => resolve(resultado && 'result' in resultado ? resultado.result : undefined);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    }
+
+    const buscarTodos = () => executar('readonly', s => s.getAll());
+    const adicionarRegistro = obj => executar('readwrite', s => s.add(obj));
+    const atualizarRegistro = obj => executar('readwrite', s => s.put(obj));
+    const removerRegistro = id => executar('readwrite', s => s.delete(id));
+    const adicionarVarios = lista => executar('readwrite', s => { lista.forEach(o => s.add(o)); });
+
+    // ============ UTILITÁRIOS ============
+    function pad(n) { return String(n).padStart(2, '0'); }
+    // Datas no horário LOCAL (toISOString usa UTC e, à noite no Brasil, já dava o dia seguinte).
+    function hoje() { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+    function mesAtual() { return hoje().slice(0, 7); }
+    function anoAtual() { return new Date().getFullYear(); }
+    function horaAgora() { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function formatarKg(v) {
+      return v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' kg';
+    }
+    function formatarDataExtenso(iso) {
+      const [a, m, d] = iso.split('-');
+      const meses = ['janeiro','fevereiro','março','abril','maio','junho',
+                     'julho','agosto','setembro','outubro','novembro','dezembro'];
+      return `${d} de ${meses[parseInt(m, 10) - 1]} de ${a}`;
+    }
+    function nomeMes(n) {
+      return ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][n - 1];
+    }
+    function tipoDe(r) { return r.tipo || SEM_TIPO; }
+
+    let toastTimer;
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('ativo');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('ativo'), 2600);
+    }
+
+    function lerLS(chave, padrao) {
+      try { const v = localStorage.getItem(chave); return v === null ? padrao : v; } catch (e) { return padrao; }
+    }
+    function gravarLS(chave, valor) {
+      try { localStorage.setItem(chave, valor); } catch (e) { /* ignora */ }
+    }
+
+    // ============ TIPOS DE TECIDO ============
+    function carregarTipos() {
+      try {
+        const salvo = JSON.parse(lerLS('refugo_tipos', 'null'));
+        tipos = Array.isArray(salvo) && salvo.length ? salvo.filter(t => typeof t === 'string') : TIPOS_PADRAO.slice();
+      } catch (e) { tipos = TIPOS_PADRAO.slice(); }
+    }
+    function salvarTipos() { gravarLS('refugo_tipos', JSON.stringify(tipos)); }
+    function garantirTipo(nome) {
+      const existente = tipos.find(t => t.toLowerCase() === nome.toLowerCase());
+      if (existente) return existente;
+      tipos.push(nome);
+      salvarTipos();
+      return nome;
+    }
+    // Inclui na lista tipos que aparecem em registros/backups mas não estão cadastrados.
+    function sincronizarTiposComRegistros(registros) {
+      let mudou = false;
+      registros.forEach(r => {
+        if (r.tipo && !tipos.some(t => t.toLowerCase() === r.tipo.toLowerCase())) { tipos.push(r.tipo); mudou = true; }
+      });
+      if (mudou) salvarTipos();
+    }
+
+    async function montarFiltro() {
+      const todos = await buscarTodos();
+      sincronizarTiposComRegistros(todos);
+      const temSemTipo = todos.some(r => !r.tipo);
+      const sel = document.getElementById('filtroTipo');
+      let html = '<option value="">Todos os tipos</option>';
+      tipos.forEach(t => { html += `<option value="${esc(t)}">${esc(t)}</option>`; });
+      if (temSemTipo) html += `<option value="${SEM_TIPO}">${SEM_TIPO}</option>`;
+      sel.innerHTML = html;
+      const existe = [...sel.options].some(o => o.value === filtroTipo);
+      if (!existe) filtroTipo = '';
+      sel.value = filtroTipo;
+    }
+
+    async function dadosFiltrados() {
+      const todos = await buscarTodos();
+      return filtroTipo ? todos.filter(r => tipoDe(r) === filtroTipo) : todos;
+    }
+
+    // ============ ABAS ============
+    function irParaAba(nome) {
+      abaAtual = nome;
+      document.querySelectorAll('.aba').forEach(b => b.classList.toggle('ativa', b.dataset.aba === nome));
+      document.querySelectorAll('.painel').forEach(p => p.classList.toggle('ativo', p.id === 'painel-' + nome));
+      document.getElementById('filtroBar').style.display = nome === 'dados' ? 'none' : 'flex';
+      renderizarAtual();
+    }
+    document.querySelectorAll('.aba').forEach(btn => {
+      btn.addEventListener('click', () => irParaAba(btn.dataset.aba));
+    });
+
+    async function renderizarAtual() {
+      if (abaAtual === 'lista') await renderizarLista();
+      if (abaAtual === 'diario') await desenharDiario();
+      if (abaAtual === 'anual') await desenharAnual();
+    }
+    async function renderizarTudo() {
+      await montarFiltro();
+      await renderizarAtual();
+    }
+
+    // ============ LISTA ============
+    async function renderizarLista() {
+      const dados = await dadosFiltrados();
+      const area = document.getElementById('areaLista');
+
+      if (dados.length === 0) {
+        area.innerHTML = '<div class="vazio">' + (filtroTipo
+          ? 'Nenhuma pesagem deste tipo de tecido.'
+          : 'Nenhuma pesagem registrada ainda.') + '</div>';
+        return;
+      }
+
+      const porData = {};
+      dados.forEach(r => { (porData[r.data] = porData[r.data] || []).push(r); });
+
+      const datas = Object.keys(porData).sort().reverse();
+      let html = '';
+
+      datas.forEach(data => {
+        const registros = porData[data].sort((a, b) => a.hora.localeCompare(b.hora));
+        const total = registros.reduce((a, b) => a + b.pesoKg, 0);
+
+        html += `<h3>📅 ${formatarDataExtenso(data)}</h3>`;
+        html += `<table class="tabela">
+          <thead><tr>
+            <th>Nº</th>
+            <th>Tipo</th>
+            <th class="num">Peso</th>
+            <th class="num">Hora</th>
+            <th class="centro">Ação</th>
+          </tr></thead><tbody>`;
+
+        registros.forEach((r, i) => {
+          const sem = r.tipo ? '' : ' sem';
+          html += `<tr>
+            <td>${i + 1}</td>
+            <td><span class="tag-tipo${sem}">${esc(tipoDe(r))}</span></td>
+            <td class="num">${formatarKg(r.pesoKg)}</td>
+            <td class="num">${esc(r.hora)}</td>
+            <td class="centro" style="white-space:nowrap;">
+              <button class="btn-icone btn-editar" data-acao="editar" data-id="${r.id}" aria-label="Editar">✏️</button><button class="btn-icone btn-lixeira" data-acao="apagar" data-id="${r.id}" aria-label="Apagar">🗑️</button>
+            </td>
+          </tr>`;
+        });
+
+        html += `</tbody>
+          <tfoot><tr>
+            <td colspan="2">TOTAL</td>
+            <td class="num" colspan="3">${formatarKg(total)}</td>
+          </tr></tfoot>
+        </table>`;
+      });
+
+      area.innerHTML = html;
+    }
+
+    document.getElementById('areaLista').addEventListener('click', async e => {
+      const btn = e.target.closest('button[data-acao]');
+      if (!btn) return;
+      const id = Number(btn.dataset.id);
+      if (btn.dataset.acao === 'apagar') {
+        if (confirm('Tem certeza que deseja apagar este registro? Os gráficos serão atualizados.')) {
+          await removerRegistro(id);
+          await renderizarTudo();
+          toast('Registro apagado');
+        }
+      } else if (btn.dataset.acao === 'editar') {
+        const todos = await buscarTodos();
+        const reg = todos.find(r => r.id === id);
+        if (reg) abrirModal(reg);
+      }
+    });
+
+    // ============ GRÁFICOS ============
+    let chartDiario = null;
+    let chartAnual = null;
+
+    function opcoesBase(extra) {
+      return Object.assign({
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } }
+      }, extra);
+    }
+
+    function criarLinha(canvasId, anterior, labels, dados, opcoes, raios) {
+      if (anterior) anterior.destroy();
+      if (typeof Chart === 'undefined') return null;
+      const ctx = document.getElementById(canvasId).getContext('2d');
+      return new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data: dados,
+            borderColor: '#0f172a',
+            backgroundColor: '#0f172a',
+            borderWidth: 4,
+            pointRadius: raios,
+            pointHitRadius: 14,
+            pointHoverRadius: 10,
+            pointBackgroundColor: '#0f172a',
+            spanGaps: true,
+            tension: 0
+          }]
+        },
+        options: opcoes
+      });
+    }
+
+    function itemResumo(titulo, valor) {
+      return `<div class="item"><span>${titulo}</span><b>${valor}</b></div>`;
+    }
+
+    async function desenharDiario() {
+      const campo = document.getElementById('mesDiario');
+      if (!/^\d{4}-\d{2}$/.test(campo.value)) campo.value = mesAtual();
+      const mes = campo.value;
+
+      const dados = await dadosFiltrados();
+      const doMes = dados.filter(r => r.data.startsWith(mes));
+
+      const totalPorDia = {};
+      const qtdPorDia = {};
+      doMes.forEach(r => {
+        totalPorDia[r.data] = (totalPorDia[r.data] || 0) + r.pesoKg;
+        qtdPorDia[r.data] = (qtdPorDia[r.data] || 0) + 1;
+      });
+
+      const [anoStr, mesStr] = mes.split('-');
+      const diasNoMes = new Date(parseInt(anoStr, 10), parseInt(mesStr, 10), 0).getDate();
+      const labels = [];
+      const valores = [];
+      const qtds = [];
+      for (let d = 1; d <= diasNoMes; d++) {
+        const diaIso = `${anoStr}-${mesStr}-${pad(d)}`;
+        labels.push(String(d));
+        valores.push(totalPorDia[diaIso] || 0);
+        qtds.push(qtdPorDia[diaIso] || 0);
+      }
+
+      chartDiario = criarLinha('graficoDiario', chartDiario, labels, valores, opcoesBase({
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: itens => 'Dia ' + itens[0].label,
+              label: c => ` ${c.parsed.y.toLocaleString('pt-BR')} kg`
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#333', font: { weight: 'bold' }, maxRotation: 0, autoSkip: true } },
+          y: { beginAtZero: true, grid: { color: '#e2e8f0' }, ticks: { color: '#333', font: { weight: 'bold' } } }
+        }
+      }), valores.map(v => v > 0 ? 6 : 0));
+
+      const resumo = document.getElementById('resumoDiario');
+      const div = document.getElementById('tabelaDiario');
+      const total = valores.reduce((a, b) => a + b, 0);
+      const diasComRegistro = valores.filter(v => v > 0).length;
+
+      if (total === 0) {
+        resumo.innerHTML = '';
+        div.innerHTML = '<div class="vazio">Sem registros neste mês.</div>';
+        return;
+      }
+
+      const maior = Math.max(...valores);
+      const diaMaior = labels[valores.indexOf(maior)];
+      resumo.innerHTML = '<div class="resumo">' +
+        itemResumo('Total do mês', formatarKg(total)) +
+        itemResumo('Média por dia', formatarKg(total / diasComRegistro)) +
+        itemResumo('Maior dia', `${formatarKg(maior)} (dia ${diaMaior})`) +
+        '</div>';
+
+      let html = `<table class="tabela">
+        <thead><tr>
+          <th>Dia</th>
+          <th class="num">Pesagens</th>
+          <th class="num">Total</th>
+        </tr></thead><tbody>`;
+      labels.forEach((d, i) => {
+        if (valores[i] > 0) {
+          html += `<tr><td>${d}</td><td class="num">${qtds[i]}</td><td class="num">${formatarKg(valores[i])}</td></tr>`;
+        }
+      });
+      html += `</tbody><tfoot>
+        <tr><td colspan="2">TOTAL DO MÊS</td><td class="num">${formatarKg(total)}</td></tr>
+      </tfoot></table>`;
+      div.innerHTML = html;
+    }
+
+    async function desenharAnual() {
+      const campo = document.getElementById('anoAnual');
+      let ano = parseInt(campo.value, 10);
+      if (!ano || ano < 2000 || ano > 2100) { ano = anoAtual(); campo.value = ano; }
+
+      const dados = await dadosFiltrados();
+      const doAno = dados.filter(r => r.data.startsWith(String(ano)));
+
+      const totalPorMes = {};
+      doAno.forEach(r => {
+        const m = r.data.slice(5, 7);
+        totalPorMes[m] = (totalPorMes[m] || 0) + r.pesoKg;
+      });
+
+      const labels = [];
+      const valoresKg = [];
+      const variacoesPct = [];   // null = sem base de comparação
+      let anteriorKg = null;     // último mês COM registro
+
+      for (let m = 1; m <= 12; m++) {
+        const kg = totalPorMes[pad(m)] || 0;
+        labels.push(nomeMes(m));
+        valoresKg.push(kg);
+
+        if (kg === 0 || anteriorKg === null) {
+          variacoesPct.push(null);
+        } else {
+          variacoesPct.push(parseFloat((((kg / anteriorKg) - 1) * 100).toFixed(1)));
+        }
+        if (kg > 0) anteriorKg = kg;
+      }
+
+      chartAnual = criarLinha('graficoAnual', chartAnual, labels, variacoesPct, opcoesBase({
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: c => ` ${c.parsed.y}%`,
+              afterLabel: c => `Peso real: ${formatarKg(valoresKg[c.dataIndex])}`
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#333', font: { weight: 'bold' } } },
+          y: {
+            grid: { color: '#e2e8f0' },
+            ticks: { color: '#333', font: { weight: 'bold' }, callback: v => v + '%' }
+          }
+        }
+      }), 6);
+
+      const div = document.getElementById('tabelaAnual');
+      const totalAno = valoresKg.reduce((a, b) => a + b, 0);
+
+      if (totalAno === 0) {
+        div.innerHTML = '<div class="vazio">Sem registros neste ano.</div>';
+        return;
+      }
+
+      let html = `<table class="tabela">
+        <thead><tr>
+          <th>Mês</th>
+          <th class="num">Total (kg)</th>
+          <th class="num">Variação</th>
+        </tr></thead><tbody>`;
+      labels.forEach((m, i) => {
+        if (valoresKg[i] > 0) {
+          const v = variacoesPct[i];
+          let celula = '<span style="color:#999;">—</span>';
+          if (v !== null) {
+            // Para refugo, aumento é ruim (vermelho) e queda é bom (verde).
+            const cor = v > 0 ? '#dc2626' : (v < 0 ? '#16a34a' : '#555');
+            const sinal = v > 0 ? '+' : '';
+            celula = `<span style="color:${cor}; font-weight:bold;">${sinal}${String(v).replace('.', ',')}%</span>`;
+          }
+          html += `<tr><td>${m}</td><td class="num">${formatarKg(valoresKg[i])}</td><td class="num">${celula}</td></tr>`;
+        }
+      });
+      html += `</tbody><tfoot>
+        <tr><td colspan="2">TOTAL DO ANO</td><td class="num">${formatarKg(totalAno)}</td></tr>
+      </tfoot></table>`;
+      div.innerHTML = html;
+    }
+
+    // ============ MODAL (ADICIONAR / EDITAR) ============
+    function montarSelectTipos(selecionado) {
+      const sel = document.getElementById('inpTipo');
+      let html = '';
+      tipos.forEach(t => { html += `<option value="${esc(t)}">${esc(t)}</option>`; });
+      html += `<option value="${NOVO_TIPO}">➕ Novo tipo…</option>`;
+      sel.innerHTML = html;
+      const ok = [...sel.options].some(o => o.value === selecionado);
+      sel.value = ok ? selecionado : (tipos[0] || NOVO_TIPO);
+      alternarNovoTipo();
+    }
+    function alternarNovoTipo() {
+      const novo = document.getElementById('inpTipo').value === NOVO_TIPO;
+      const campo = document.getElementById('inpNovoTipo');
+      campo.style.display = novo ? 'block' : 'none';
+      if (novo) { campo.value = ''; setTimeout(() => campo.focus(), 50); }
+    }
+
+    function abrirModal(registro) {
+      editandoReg = registro || null;
+      document.getElementById('modalTitulo').textContent = registro ? 'Editar Peso' : 'Adicionar Peso';
+      document.getElementById('inpData').value = registro ? registro.data : hoje();
+      document.getElementById('inpPeso').value = registro ? registro.pesoKg : '';
+      document.getElementById('inpHora').value = registro ? registro.hora : horaAgora();
+
+      let tipoInicial;
+      if (registro) tipoInicial = registro.tipo || '';
+      else tipoInicial = (filtroTipo && filtroTipo !== SEM_TIPO) ? filtroTipo : lerLS('refugo_ultimo_tipo', '');
+      montarSelectTipos(tipoInicial);
+
+      document.getElementById('overlay').classList.add('ativo');
+      if (!registro) setTimeout(() => document.getElementById('inpPeso').focus(), 100);
+    }
+    function fecharModal() {
+      document.getElementById('overlay').classList.remove('ativo');
+      editandoReg = null;
+    }
+    function modalAberto() { return document.getElementById('overlay').classList.contains('ativo'); }
+
+    async function salvar() {
+      const peso = parseFloat(document.getElementById('inpPeso').value);
+      const data = document.getElementById('inpData').value;
+      const hora = document.getElementById('inpHora').value;
+      let tipo = document.getElementById('inpTipo').value;
+
+      if (isNaN(peso) || peso <= 0) { alert('Digite um peso válido!'); return; }
+      if (!data) { alert('Selecione uma data!'); return; }
+      if (!hora) { alert('Informe a hora!'); return; }
+
+      if (tipo === NOVO_TIPO) {
+        const nome = document.getElementById('inpNovoTipo').value.trim();
+        if (!nome) { alert('Digite o nome do novo tipo de tecido!'); return; }
+        if (nome === SEM_TIPO) { alert('Escolha outro nome para o tipo.'); return; }
+        tipo = garantirTipo(nome);
+      }
+      gravarLS('refugo_ultimo_tipo', tipo);
+
+      try {
+        if (editandoReg) {
+          await atualizarRegistro(Object.assign({}, editandoReg, { pesoKg: peso, data, hora, tipo }));
+        } else {
+          await adicionarRegistro({ pesoKg: peso, data, hora, tipo, timestamp: Date.now() });
+        }
+      } catch (err) {
+        alert('Não foi possível salvar. Tente novamente.');
+        return;
+      }
+      const edicao = !!editandoReg;
+      fecharModal();
+      await renderizarTudo();
+      toast(edicao ? 'Registro atualizado' : 'Peso salvo');
+    }
+
+    // ============ EXPORTAR / BACKUP ============
+    async function entregarArquivo(nome, texto, mime) {
+      const cap = window.Capacitor;
+      const nativo = cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform();
+      if (nativo) {
+        const { Filesystem, Share } = cap.Plugins;
+        const r = await Filesystem.writeFile({ path: nome, data: texto, directory: 'CACHE', encoding: 'utf8' });
+        await Share.share({ title: nome, url: r.uri, dialogTitle: 'Salvar ou enviar arquivo' });
+        return;
+      }
+      const blob = new Blob([texto], { type: mime + ';charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = nome;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    function campoCsv(v) {
+      let s = String(v);
+      if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;   // evita fórmulas ao abrir no Excel
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+
+    async function exportarCsv() {
+      const todos = await buscarTodos();
+      if (!todos.length) { toast('Não há registros para exportar'); return; }
+      todos.sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora));
+      const linhas = ['Data;Hora;Tipo;Peso (kg)'];
+      todos.forEach(r => {
+        const [a, m, d] = r.data.split('-');
+        linhas.push([`${d}/${m}/${a}`, r.hora, campoCsv(tipoDe(r)), String(r.pesoKg).replace('.', ',')].join(';'));
+      });
+      try {
+        await entregarArquivo(`refugo_${hoje()}.csv`, '﻿' + linhas.join('\r\n'), 'text/csv');
+      } catch (e) {
+        if (!/cancel/i.test(String(e && e.message))) alert('Não foi possível exportar o arquivo.');
+      }
+    }
+
+    async function salvarBackup() {
+      const todos = await buscarTodos();
+      if (!todos.length) { toast('Não há registros para salvar'); return; }
+      const pacote = {
+        app: 'refugo-tecidos', versao: 2, exportadoEm: new Date().toISOString(), tipos,
+        registros: todos.map(r => ({ pesoKg: r.pesoKg, data: r.data, hora: r.hora, tipo: r.tipo || '', timestamp: r.timestamp || 0 }))
+      };
+      try {
+        await entregarArquivo(`backup_refugo_${hoje()}.json`, JSON.stringify(pacote, null, 1), 'application/json');
+      } catch (e) {
+        if (!/cancel/i.test(String(e && e.message))) alert('Não foi possível salvar o backup.');
+      }
+    }
+
+    function assinatura(r) { return [r.data, r.hora, Number(r.pesoKg), (r.tipo || '').toLowerCase()].join('|'); }
+
+    async function restaurarBackup(arquivo) {
+      let pacote;
+      try { pacote = JSON.parse(await arquivo.text()); } catch (e) { alert('Arquivo inválido.'); return; }
+      if (!pacote || !Array.isArray(pacote.registros)) { alert('Este arquivo não parece ser um backup do app.'); return; }
+
+      const existentes = new Set((await buscarTodos()).map(assinatura));
+      const novos = [];
+      let invalidos = 0;
+      let repetidos = 0;
+      pacote.registros.forEach(r => {
+        const ok = r && typeof r.pesoKg === 'number' && isFinite(r.pesoKg) && r.pesoKg > 0 &&
+                   /^\d{4}-\d{2}-\d{2}$/.test(r.data) && /^\d{2}:\d{2}$/.test(r.hora);
+        if (!ok) { invalidos++; return; }
+        const reg = {
+          pesoKg: r.pesoKg, data: r.data, hora: r.hora,
+          tipo: typeof r.tipo === 'string' ? r.tipo.trim().slice(0, 30) : '',
+          timestamp: typeof r.timestamp === 'number' ? r.timestamp : Date.now()
+        };
+        const sig = assinatura(reg);
+        if (existentes.has(sig)) { repetidos++; return; }
+        existentes.add(sig);
+        novos.push(reg);
+      });
+
+      if (Array.isArray(pacote.tipos)) {
+        pacote.tipos.forEach(t => { if (typeof t === 'string' && t.trim() && t.length <= 30) garantirTipo(t.trim()); });
+      }
+      if (novos.length) await adicionarVarios(novos);
+      await renderizarTudo();
+      let msg = `${novos.length} registro(s) restaurado(s)`;
+      if (repetidos) msg += `, ${repetidos} já existiam`;
+      if (invalidos) msg += `, ${invalidos} ignorado(s) por erro`;
+      toast(msg);
+    }
+
+    // ============ EVENTOS ============
+    document.getElementById('btnAbrir').addEventListener('click', () => abrirModal());
+    document.getElementById('btnCancelar').addEventListener('click', fecharModal);
+    document.getElementById('btnSalvar').addEventListener('click', salvar);
+    document.getElementById('overlay').addEventListener('click', e => {
+      if (e.target.id === 'overlay') fecharModal();
+    });
+    document.getElementById('inpPeso').addEventListener('keydown', e => {
+      if (e.key === 'Enter') salvar();
+    });
+    document.getElementById('inpTipo').addEventListener('change', alternarNovoTipo);
+    document.getElementById('filtroTipo').addEventListener('change', e => {
+      filtroTipo = e.target.value;
+      renderizarAtual();
+    });
+
+    document.getElementById('mesDiario').addEventListener('change', desenharDiario);
+    document.getElementById('anoAnual').addEventListener('change', desenharAnual);
+
+    function deslocarMes(delta) {
+      const campo = document.getElementById('mesDiario');
+      const [a, m] = (campo.value || mesAtual()).split('-').map(Number);
+      const d = new Date(a, m - 1 + delta, 1);
+      campo.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+      desenharDiario();
+    }
+    function deslocarAno(delta) {
+      const campo = document.getElementById('anoAnual');
+      campo.value = (parseInt(campo.value, 10) || anoAtual()) + delta;
+      desenharAnual();
+    }
+    document.getElementById('mesAnterior').addEventListener('click', () => deslocarMes(-1));
+    document.getElementById('mesProximo').addEventListener('click', () => deslocarMes(1));
+    document.getElementById('anoAnterior').addEventListener('click', () => deslocarAno(-1));
+    document.getElementById('anoProximo').addEventListener('click', () => deslocarAno(1));
+
+    document.getElementById('btnCsv').addEventListener('click', exportarCsv);
+    document.getElementById('btnBackup').addEventListener('click', salvarBackup);
+    document.getElementById('btnRestaurar').addEventListener('click', () => document.getElementById('inpArquivo').click());
+    document.getElementById('inpArquivo').addEventListener('change', async e => {
+      const arq = e.target.files[0];
+      e.target.value = '';
+      if (arq) await restaurarBackup(arq);
+    });
+
+    // Botão "voltar" do Android: fecha o modal, volta para a lista, ou sai do app.
+    function configurarBotaoVoltar() {
+      const cap = window.Capacitor;
+      if (!(cap && cap.Plugins && cap.Plugins.App)) return;
+      cap.Plugins.App.addListener('backButton', () => {
+        if (modalAberto()) fecharModal();
+        else if (abaAtual !== 'lista') irParaAba('lista');
+        else cap.Plugins.App.exitApp();
+      });
+    }
+
+    // ============ INÍCIO ============
+    (async function init() {
+      try {
+        await abrirDB();
+      } catch (e) {
+        document.getElementById('areaLista').innerHTML =
+          '<div class="vazio">Não foi possível abrir o armazenamento do aparelho.</div>';
+        return;
+      }
+      // Pede ao sistema para não apagar os dados automaticamente quando faltar espaço.
+      try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ignora */ }
+
+      carregarTipos();
+      document.getElementById('mesDiario').value = mesAtual();
+      document.getElementById('anoAnual').value = anoAtual();
+      configurarBotaoVoltar();
+      await renderizarTudo();
+    })();
+  </script>
+</body>
+</html>
