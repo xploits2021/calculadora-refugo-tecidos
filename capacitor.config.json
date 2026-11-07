@@ -1,0 +1,8 @@
+{
+  "appId": "br.com.refugo.tecidos",
+  "appName": "Refugo de Tecidos",
+  "webDir": "www",
+  "android": {
+    "adjustMarginsForEdgeToEdge": "auto"
+  }
+}
